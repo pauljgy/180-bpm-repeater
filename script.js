@@ -13,23 +13,57 @@ const pauseIcon = document.getElementById('pauseIcon');
 
 let isPlaying = false;
 let repeatInterval = null;
+let currentObjectUrl = null;
+
+const DEFAULT_AUDIO_URL = 'assets/kick.wav';
+const DEFAULT_AUDIO_NAME = 'kick.wav';
+
+function setAudioSource({ url, name, isBlob }) {
+    // Stop any playback when switching sources
+    if (isPlaying) pause();
+
+    // Revoke the previous blob URL (if any)
+    if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+        currentObjectUrl = null;
+    }
+
+    audioPlayer.src = url;
+    fileName.textContent = name;
+    playPauseBtn.disabled = false;
+    status.textContent = 'File loaded. Click play to start.';
+
+    if (isBlob) currentObjectUrl = url;
+
+    // Update Media Session metadata (if supported)
+    if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: name,
+            artist: 'TempoMaxxer'
+        });
+    }
+}
+
+// Load default kick on startup
+setAudioSource({ url: DEFAULT_AUDIO_URL, name: DEFAULT_AUDIO_NAME, isBlob: false });
+
+// If the default file fails to load (e.g. wrong path), show a helpful status
+audioPlayer.addEventListener('error', () => {
+    // If user selected a file manually, don't override their status.
+    if (fileName.textContent === DEFAULT_AUDIO_NAME) {
+        playPauseBtn.disabled = true;
+        status.textContent = `Couldn't load default audio at ${DEFAULT_AUDIO_URL}. Please choose a file.`;
+        fileName.textContent = 'No file selected';
+        audioPlayer.src = '';
+    }
+});
 
 // Handle file selection
 audioFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
-        fileName.textContent = file.name;
         const url = URL.createObjectURL(file);
-        audioPlayer.src = url;
-        playPauseBtn.disabled = false;
-        status.textContent = 'File loaded. Click play to start.';
-        
-        // Clean up previous URL if exists
-        audioPlayer.addEventListener('loadeddata', () => {
-            if (audioPlayer.src && audioPlayer.src.startsWith('blob:')) {
-                // URL will be cleaned up when audio is loaded
-            }
-        });
+        setAudioSource({ url, name: file.name, isBlob: true });
     }
 });
 
@@ -115,17 +149,6 @@ if ('mediaSession' in navigator) {
             pause();
         }
     });
-    
-    // Update metadata when file is loaded
-    audioFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && 'mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: file.name,
-                artist: '180 BPM Repeater'
-            });
-        }
-    });
 }
 
 // Keep audio playing in background (works on some mobile browsers)
@@ -134,7 +157,5 @@ audioPlayer.setAttribute('webkit-playsinline', 'true');
 
 // Clean up blob URLs when page unloads
 window.addEventListener('beforeunload', () => {
-    if (audioPlayer.src && audioPlayer.src.startsWith('blob:')) {
-        URL.revokeObjectURL(audioPlayer.src);
-    }
+    if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
 });

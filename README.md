@@ -1,4 +1,4 @@
-# 180 BPM Repeater
+# TempoMaxxer
 
 A simple web application that allows you to upload a short sound file and play it repeatedly at 180 beats per minute (BPM) until paused.
 
